@@ -1,0 +1,236 @@
+import os
+import datetime
+import requests
+
+
+class LMS:
+    def __init__(self, list_of_books, members_file, transactions_file, library_name):
+        self.list_of_books = list_of_books
+        self.members_file = members_file
+        self.transactions_file = transactions_file
+        self.library_name = library_name
+        self.books_dict = {}
+        self.members_dict = {}
+        self.transactions = []
+        self.next_transaction_id = 1
+
+        # Load existing books from file
+        with open(self.list_of_books, 'r') as book_file:
+            for line in book_file:
+                line = line.strip()
+                if line:
+                    book_id, book_title, lender_name, lend_date, status = line.split(',')
+                    self.books_dict[book_id] = {
+                        'book_title': book_title,
+                        'lender_name': lender_name,
+                        'lend_date': lend_date,
+                        'status': status
+                    }
+
+        # Load existing members from file
+        with open(self.members_file, 'r') as member_file:
+            for line in member_file:
+                line = line.strip()
+                if line:
+                    member_id, member_name = line.split(',')
+                    self.members_dict[member_id] = member_name
+
+        # Load existing transactions from file
+        with open(self.transactions_file, 'r') as transaction_file:
+            for line in transaction_file:
+                line = line.strip()
+                if line:
+                    transaction_id, book_id, member_id, issue_date, return_date, rent_fee = line.split(',')
+                    self.transactions.append({
+                        'transaction_id': int(transaction_id),
+                        'book_id': book_id,
+                        'member_id': member_id,
+                        'issue_date': datetime.datetime.strptime(issue_date, '%Y-%m-%d %H:%M:%S'),
+                        'return_date': datetime.datetime.strptime(return_date, '%Y-%m-%d %H:%M:%S') if return_date else None,
+                        'rent_fee': float(rent_fee)
+                    })
+                    self.next_transaction_id = max(self.next_transaction_id, int(transaction_id) + 1)
+
+    def display_books(self):
+        print("------------------------List of Books---------------------")
+        print("Books ID", "\t", "Title", "\t\t", "Lender Name", "\t", "Issue Date", "\t", "Status")
+        print("----------------------------------------------------------")
+        for book_id, book_details in self.books_dict.items():
+            print(
+                book_id, "\t\t", book_details['book_title'], "\t", book_details['lender_name'], "\t",
+                book_details['lend_date'], "\t", book_details['status']
+            )
+
+    def issue_books(self):
+        book_id = input("Enter Book ID: ")
+        member_id = input("Enter Member ID: ")
+
+        if book_id in self.books_dict:
+            book_details = self.books_dict[book_id]
+            if book_details['status'] == 'Available':
+                if member_id in self.members_dict:
+                    rent = input("Rent Fee (Leave blank if not applicable): ")
+                    rent_fee = float(rent) if rent else 0.0
+                    current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    self.books_dict[book_id]['lender_name'] = self.members_dict[member_id]
+                    self.books_dict[book_id]['lend_date'] = current_date
+                    self.books_dict[book_id]['status'] = 'Issued'
+
+                    self.transactions.append({
+                                            'transaction_id': self.next_transaction_id,
+                    'book_id': book_id,
+                    'member_id': member_id,
+                    'issue_date': current_date,
+                    'return_date': None,
+                    'rent_fee': rent_fee
+                })
+                self.next_transaction_id += 1
+
+                print("Book Issued Successfully!")
+
+            else:
+                print("Invalid Member ID!")
+
+        else:
+            print("Invalid Book ID.")
+
+    def return_books(self):
+        book_id = input("Enter Book ID: ")
+        if book_id in self.books_dict:
+            book_details = self.books_dict[book_id]
+            if book_details['status'] == 'Issued':
+                current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                return_date = datetime.datetime.strptime(current_date, "%Y-%m-%d %H:%M:%S")
+
+                transaction_id = None
+                for transaction in self.transactions:
+                    if transaction['book_id'] == book_id and transaction['return_date'] is None:
+                        transaction_id = transaction['transaction_id']
+                        transaction['return_date'] = return_date
+
+                if transaction_id:
+                    self.books_dict[book_id]['lender_name'] = ''
+                    self.books_dict[book_id]['lend_date'] = ''
+                    self.books_dict[book_id]['status'] = 'Available'
+                    print("Book Returned Successfully!")
+                else:
+                    print("No active transaction found for the book.")
+
+            else:
+                print("The book is not currently issued.")
+
+        else:
+            print("Invalid Book ID.")
+
+    def add_books(self):
+        book_id = input("Enter Book ID: ")
+        if book_id in self.books_dict:
+            print("Book ID already exists.")
+            return
+
+        book_title = input("Enter Book Title: ")
+        lender_name = input("Enter Lender Name: ")
+        lend_date = input("Enter Lend Date (YYYY-MM-DD HH:MM:SS): ")
+        status = input("Enter Book Status (Available/Issued): ")
+
+        self.books_dict[book_id] = {
+            'book_title': book_title,
+            'lender_name': lender_name,
+            'lend_date': lend_date,
+            'status': status
+        }
+
+        print("Book added successfully!")
+
+    def save_data(self):
+        # Save books to file
+        with open(self.list_of_books, 'w') as book_file:
+            for book_id, book_details in self.books_dict.items():
+                book_file.write(f"{book_id},{book_details['book_title']},{book_details['lender_name']},"
+                                f"{book_details['lend_date']},{book_details['status']}\n")
+
+        # Save members to file
+        with open(self.members_file, 'w') as member_file:
+            for member_id, member_name in self.members_dict.items():
+                member_file.write(f"{member_id},{member_name}\n")
+
+        # Save transactions to file
+        with open(self.transactions_file, 'w') as transaction_file:
+            for transaction in self.transactions:
+                transaction_file.write(f"{transaction['transaction_id']},{transaction['book_id']},"
+                                       f"{transaction['member_id']},{transaction['issue_date']},"
+                                       f"{transaction['return_date']},{transaction['rent_fee']}\n")
+
+    def import_books(self):
+        num_books = int(input("Enter the number of books to import: "))
+        title = input("Enter the title of the books to import: ")
+
+        url = f"https://frappe.io/api/method/frappe-library?page=1&title={title}"
+        response = requests.get(url)
+        data = response.json()
+
+        if "message" in data:
+            books = data["message"]
+            for book in books[:num_books]:
+                book_id = book["bookID"]
+                book_title = book["title"]
+                author = book["authors"]
+                isbn = book["isbn"]
+                publisher = book["publisher"]
+                pages = book["page"]
+
+                self.books_dict[book_id] = {
+                    'book_title': book_title,
+                    'lender_name': '',
+                    'lend_date': '',
+                    'status': 'Available',
+                    'author': author,
+                    'isbn': isbn,
+                    'publisher': publisher,
+                    'pages': pages
+                }
+
+            print(f"{num_books} books imported successfully!")
+        else:
+            print("Error occurred while importing books.")
+
+    def quit_program(self):
+        self.save_data()
+        print("Thank you for using the Library Management System. Goodbye!")
+
+    def run(self):
+        while True:
+            print("\n----------Welcome To Python's Library---------")
+            print("Press D To Display Books")
+            print("Press I To Issue Books")
+            print("Press A To Add Books")
+            print("Press R To Return Books")
+            print("Press Q To Quit")
+            choice = input("Press Key: ")
+
+            if choice.upper() == 'D':
+                self.display_books()
+            elif choice.upper() == 'I':
+                self.issue_books()
+            elif choice.upper() == 'A':
+                self.add_books()
+            elif choice.upper() == 'R':
+                self.return_books()
+            elif choice.upper() == 'Q':
+                self.quit_program()
+                break
+            else:
+                print("Invalid choice! Please try again.")
+
+
+# Main Program
+list_of_books = 'books.txt'
+members_file = 'members.txt'
+transactions_file = 'transactions.txt'
+library_name = "Python's Library"
+
+lms = LMS(list_of_books, members_file, transactions_file, library_name)
+lms.run()
+
+
