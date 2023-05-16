@@ -23,3 +23,7 @@ Quitting Program: The quit_program method is called when the user chooses to exi
 Running the Program: The run method is the main entry point for the program. It presents a menu to the user and repeatedly prompts for input until the user chooses to quit. Based on the user's choice, it calls the corresponding methods to perform the desired operation.
 
 Main Program: The main program creates an instance of the LMS class, passing the necessary file paths and library name. It then calls the run method to start the program's execution.
+
+![image](https://github.com/Chandraprabhu03/librarymanange/assets/105406616/ceb60c48-0662-4993-9d06-7831ef31c6b9)
+![image](https://github.com/Chandraprabhu03/librarymanange/assets/105406616/f33e6202-fe47-4880-8883-670a376f88f7)
+
